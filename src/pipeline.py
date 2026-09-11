@@ -6,13 +6,15 @@ import pandas as pd
 
 import beneish
 import edgar_client
+import spc
 import text_signals
 import xbrl_utils
 
 
 def financial_signals(cik: str) -> pd.DataFrame:
     facts = edgar_client.get_company_facts(cik)
-    df = xbrl_utils.build_annual_dataframe(facts)
+    valid_ends = [f["reportDate"] for f in edgar_client.list_filings(cik, "10-K")]
+    df = xbrl_utils.build_annual_dataframe(facts, valid_fiscal_year_ends=valid_ends)
     return beneish.compute_m_score(df)
 
 
@@ -80,4 +82,7 @@ def composite_risk_score(fin: pd.DataFrame, text: pd.DataFrame) -> pd.DataFrame:
     # score ranks years within a company, not companies against each other)
     merged["composite_risk_0_100"] = 100 / (1 + np.exp(-(raw - raw.mean())))
     merged["component_scores"] = components.to_dict(orient="index")
+
+    t2 = spc.hotelling_t2(merged)
+    merged = merged.join(t2)
     return merged

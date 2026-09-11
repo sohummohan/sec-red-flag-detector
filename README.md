@@ -36,14 +36,57 @@ EDGAR extracts from every filed financial statement.
 The two signal sets are z-scored and combined into a 0–100 composite score,
 squashed with a logistic function.
 
+**3. Multivariate statistical process control (Hotelling T²).** The
+composite score above treats the 8 Beneish ratios independently; T²
+instead treats them as one multivariate "process" and measures how far a
+given year sits from the company's own historical center *accounting for
+how the ratios normally move together*. See "Industrial engineering
+framing" below.
+
 ## Validation
 
-Fiscal year 2015 for **Under Armour (UAA)** — the exact year the SEC's 2021
-enforcement action found the company had "pulled forward" sales from future
-quarters to hit analyst estimates — scores as the single highest M-Score
-(and highest composite risk score) across the company's entire 18-year
-filing history. That's not tuned in; it falls out of the model on real
-data. See `src/beneish.py` for the model and `app.py` for the live chart.
+Fiscal year 2015 for **Under Armour (UAA)** — the SEC's 2021 settlement found
+the company failed to disclose that it had pulled forward $408M in sales
+across six quarters starting Q3 2015 (a disclosure failure; the SEC did not
+allege the sales themselves violated GAAP) — scores as the single highest
+M-Score across the company's entire 18-year filing history. That single
+result isn't tuned in, but it's one anecdote.
+
+**[VALIDATION.md](VALIDATION.md)** has the real study: 4 documented SEC
+enforcement cases (Under Armour, Kraft Heinz, MiMedx, Granite Construction —
+every flagged fiscal year checked against the SEC's own press releases, not
+secondhand summaries) plus 8 industry-matched clean companies, run through
+`src/validation_study.py`. Headline result: **3 of 4 fraud cases land their
+documented fraud year as the single riskiest year in that company's own
+filing history** — against roughly 0.33 expected by chance. It also
+documents where the model missed (MiMedx) and three real bugs found and
+fixed along the way, including one that had initially made a result look
+better than it actually was.
+
+## Industrial engineering framing
+
+The composite score above is a fairly ad hoc heuristic (average some
+z-scores, squash with a logistic). `src/spc.py` implements a more
+principled alternative: **Hotelling's T²**, the standard technique from
+industrial engineering quality control (e.g. UC Berkeley's
+[IEOR 165](https://ieor.berkeley.edu), *Engineering Statistics, Quality
+Control, and Forecasting*) for monitoring a multivariate process — normally
+a manufacturing line, here a company's own reported financial ratios.
+Because 8 ratios estimated from only ~10-15 years of company history is a
+classic high-dimension/low-sample-size covariance estimation problem, the
+raw sample covariance was unusable (it produced a T²/UCL ratio over 9,000
+for a company with no known accounting issues); `src/spc.py` uses
+Ledoit-Wolf shrinkage instead, the standard covariance-regularization
+technique from financial risk modeling (the kind of thing covered in
+Berkeley's [IEOR 241](https://ieor.berkeley.edu), *Risk Modeling,
+Simulation, and Data Analysis*) for exactly this problem in portfolio
+covariance estimation.
+
+Worth saying plainly: on this dataset, T² did **not** outperform the
+simpler composite score (see VALIDATION.md) — it's included because it's
+a legitimate, more statistically rigorous method worth knowing how to
+apply, not because it won. A negative result from the more sophisticated
+technique is still a real result.
 
 ## Known limitations (read before treating this as more than it is)
 
@@ -80,12 +123,16 @@ throttled or blocked.
 
 ```
 src/
-  edgar_client.py   # SEC EDGAR API client (tickers, filings, XBRL facts)
-  xbrl_utils.py      # extracts clean annual financial line items from XBRL
-  beneish.py         # the Beneish M-Score model
-  text_signals.py    # 10-K section extraction, tone scoring, similarity
-  pipeline.py        # ties it all together into the composite score
-app.py               # Streamlit dashboard
+  edgar_client.py     # SEC EDGAR API client (tickers, filings, XBRL facts)
+  xbrl_utils.py       # extracts clean annual financial line items from XBRL
+  beneish.py          # the Beneish M-Score model
+  text_signals.py     # 10-K section extraction, tone scoring, similarity
+  spc.py              # Hotelling T-squared / Ledoit-Wolf multivariate control chart
+  pipeline.py         # ties it all together into the composite score
+  validation_cases.py # documented SEC fraud cases + matched clean companies
+  validation_study.py # runs the pipeline across validation_cases.py, scores it
+app.py                # Streamlit dashboard
+VALIDATION.md         # the actual validation study, methodology + results
 ```
 
 ## Ideas for extending this

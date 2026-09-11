@@ -53,6 +53,10 @@ def compute_ratios(df: pd.DataFrame) -> pd.DataFrame:
     ratios["SGAI"] = (d["sga_expense"] / d["revenue"]) / (prev["sga_expense"] / prev["revenue"])
     ratios["LVGI"] = leverage / leverage_prev
     ratios["TATA"] = (d["net_income"] - d["cash_from_ops"]) / d["total_assets"]
+    # a zero denominator (e.g. a year with a spuriously-tagged $0 line item)
+    # produces +/-inf, which should mean "this ratio is undefined," not "an
+    # extreme value" -- treat it the same as any other missing data
+    ratios = ratios.replace([np.inf, -np.inf], np.nan)
     return ratios
 
 

@@ -27,9 +27,11 @@ with st.sidebar:
     run = st.button("Analyze", type="primary")
     st.divider()
     st.caption(
-        "Known validation case: **UAA fiscal 2015** — the exact year the SEC later found "
-        "Under Armour pulled forward sales to hit estimates (2021 settlement) — scores as "
-        "the single highest M-Score in the company's filing history."
+        "Known validation case: **UAA fiscal 2015** — the SEC's 2021 settlement found "
+        "Under Armour failed to disclose that it pulled forward $408M in sales over "
+        "6 quarters starting Q3 2015 (a disclosure failure, not an alleged GAAP "
+        "violation) — this year scores as the single highest M-Score in the company's "
+        "filing history. See the full validation study in the README for more cases."
     )
     st.caption(
         "This is a research/educational tool, not investment advice. Scores are heuristic "
@@ -96,7 +98,9 @@ fig.update_layout(yaxis_title="Risk score (0-100, relative to own history)", xax
 st.plotly_chart(fig, use_container_width=True)
 
 st.subheader("Signal breakdown")
-tab1, tab2 = st.tabs(["Financial: Beneish M-Score", "Textual: tone & rewrite analysis"])
+tab1, tab2, tab3 = st.tabs(
+    ["Financial: Beneish M-Score", "Textual: tone & rewrite analysis", "Multivariate: Hotelling T² (SPC)"]
+)
 
 with tab1:
     st.markdown(
@@ -136,6 +140,29 @@ with tab2:
     )
     st.plotly_chart(fig4, use_container_width=True)
     st.caption("A sharp drop means the section was substantially rewritten year-over-year -- sometimes benign, sometimes worth a closer read.")
+
+with tab3:
+    st.markdown(
+        "**Hotelling's T²** is the standard industrial-engineering technique for monitoring a "
+        "multivariate process (taught e.g. in UC Berkeley IEOR 165, *Engineering Statistics, "
+        "Quality Control, and Forecasting*) -- normally used to watch a manufacturing line for "
+        "drift. Here the '8 sensors' are the Beneish ratios, and the 'process' is a company's own "
+        "reported financials. Unlike the composite score above (which treats each ratio "
+        "independently), T² accounts for how the ratios normally move *together*, so it won't "
+        "overreact to two correlated ratios moving in their usual lockstep. A year crossing the "
+        "UCL (upper control limit, derived from the F-distribution at 95% confidence) is "
+        "statistically out of control relative to the company's own history."
+    )
+    t2_data = merged.dropna(subset=["t2", "ucl"])
+    if t2_data.empty:
+        st.info("Not enough years of clean financial data to fit a multivariate control chart for this company (need at least ~11 years of complete Beneish ratios).")
+    else:
+        fig5 = go.Figure()
+        fig5.add_trace(go.Scatter(x=t2_data.index, y=t2_data["t2"], mode="lines+markers", name="T² statistic"))
+        fig5.add_trace(go.Scatter(x=t2_data.index, y=t2_data["ucl"], mode="lines", name="UCL (95%)", line=dict(dash="dot", color="red")))
+        fig5.update_layout(yaxis_title="Hotelling T²", xaxis_title="Fiscal year")
+        st.plotly_chart(fig5, use_container_width=True)
+        st.dataframe(t2_data[["t2", "ucl", "out_of_control"]].round(2))
 
 st.divider()
 st.caption("Data: SEC EDGAR (XBRL company facts + 10-K filings). Not investment advice.")
