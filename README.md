@@ -119,6 +119,17 @@ SEC requires every EDGAR API request to identify who's making it via the
 User-Agent header — that's what `.env` is for. Without it you'll get
 throttled or blocked.
 
+### Deploying on Streamlit Community Cloud
+
+Cloud deployments have no `.env` file, so set the same value as a secret in
+the app's **Settings → Secrets** panel:
+
+```toml
+SEC_EDGAR_USER_AGENT = "Your Name your.email@example.com"
+```
+
+`app.py` reads it from `st.secrets` automatically.
+
 ## Project structure
 
 ```
