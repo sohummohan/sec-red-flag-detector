@@ -11,8 +11,11 @@ import streamlit as st
 # Streamlit Community Cloud has no .env file -- secrets are configured in
 # the dashboard and surfaced via st.secrets instead. Locally, .env (loaded
 # by edgar_client) already covers this, so this is a no-op there.
-if "SEC_EDGAR_USER_AGENT" in st.secrets:
-    os.environ["SEC_EDGAR_USER_AGENT"] = st.secrets["SEC_EDGAR_USER_AGENT"]
+try:
+    if "SEC_EDGAR_USER_AGENT" in st.secrets:
+        os.environ["SEC_EDGAR_USER_AGENT"] = st.secrets["SEC_EDGAR_USER_AGENT"]
+except FileNotFoundError:
+    pass
 
 import beneish
 import edgar_client
